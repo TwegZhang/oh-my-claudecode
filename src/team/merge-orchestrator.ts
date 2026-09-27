@@ -868,6 +868,13 @@ export async function startMergeOrchestrator(
 
       // Audit any unmerged drain residue.
       if (unmerged.length > 0) {
+        try {
+          process.stderr.write(
+            `[team/merge-orchestrator] WARNING: auto-merge left worker commits unmerged at shutdown: ${unmerged.map((u) => `${u.workerName}:${u.reason}`).join(', ')}\n`,
+          );
+        } catch {
+          // best-effort warning
+        }
         const auditPath = teardownAuditPath(config.repoRoot, config.teamName);
         await mkdir(dirname(auditPath), { recursive: true });
         for (const u of unmerged) {
