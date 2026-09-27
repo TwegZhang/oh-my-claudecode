@@ -520,7 +520,7 @@ export function parseTeamArgs(tokens: string[], defaultAgentType: string = 'clau
     task = taskFromFlag.trim();
   } else {
     const positionalTask = filteredArgs[0] || '';
-    if (!explicitWorkerSpec && (filteredArgs.length !== 1 || !/\s/.test(positionalTask))) {
+    if (!explicitWorkerSpec && filteredArgs.length === 1 && !/\s/.test(positionalTask)) {
       throw new Error(
         'Usage: omc team [N:agent-type[:role]] "<task description>" (or use --task "<task description>")',
       );

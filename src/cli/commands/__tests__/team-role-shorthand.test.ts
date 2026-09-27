@@ -126,6 +126,21 @@ describe('teamCommand role-only shorthand', () => {
     expect(process.exitCode).toBe(1);
   });
 
+  it('starts an unquoted multi-word task without a worker spec', async () => {
+    const { teamCommand } = await import('../team.js');
+
+    await teamCommand(['fix', 'the', 'login', 'bug']);
+
+    expect(runtimeV2Mocks.startTeamV2).toHaveBeenCalledWith(expect.objectContaining({
+      workerCount: 3,
+      tasks: expect.arrayContaining([
+        expect.objectContaining({ subject: 'Worker 1: fix the login bug', description: 'fix the login bug', owner: 'worker-1' }),
+        expect.objectContaining({ subject: 'Worker 2: fix the login bug', description: 'fix the login bug', owner: 'worker-2' }),
+        expect.objectContaining({ subject: 'Worker 3: fix the login bug', description: 'fix the login bug', owner: 'worker-3' }),
+      ]),
+    }));
+  });
+
   it('treats --help anywhere as help instead of task text', async () => {
     const { teamCommand } = await import('../team.js');
 

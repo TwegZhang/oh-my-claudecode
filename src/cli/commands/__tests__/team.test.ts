@@ -351,9 +351,16 @@ describe('parseTeamArgs explicit task syntax', () => {
     expect(parsed.explicitWorkerSpec).toBe(false);
   });
 
-  it('rejects ambiguous bare words and unquoted task text without a worker spec', () => {
+  it('rejects a single bare word without --task or an explicit worker spec', () => {
     expect(() => parseTeamArgs(['unknown-word'])).toThrow(/Usage: omc team/);
-    expect(() => parseTeamArgs(['review', 'auth', 'flow'])).toThrow(/Usage: omc team/);
+  });
+
+  it('joins an unquoted multi-token task without a worker spec', () => {
+    const parsed = parseTeamArgs(['fix', 'the', 'login', 'bug']);
+
+    expect(parsed.task).toBe('fix the login bug');
+    expect(parsed.workerCount).toBe(3);
+    expect(parsed.explicitWorkerSpec).toBe(false);
   });
 });
 
