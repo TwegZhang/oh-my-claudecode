@@ -3270,7 +3270,30 @@ describe('runtime v2 startup inbox dispatch', () => {
     expect(Date.now() - startedAt).toBe(31_250);
   });
 
-  it('still fails an unengaged Claude pane at the fast 1.25s boundary', async () => {
+  it('accepts delayed evidence for an unengaged Claude pane during the final recheck', async () => {
+    vi.useFakeTimers();
+    const policy = getWorkerStartupEvidencePolicy('claude');
+    const startedAt = Date.now();
+    let hasEvidence = false;
+    setTimeout(() => { hasEvidence = true; }, 20_000);
+    const evidencePromise = settleStartupEvidence(
+      policy,
+      budgetMs => waitForStartupEvidenceBudget(async () => hasEvidence, budgetMs),
+      async () => 'unavailable',
+    );
+    let settled = false;
+    void evidencePromise.finally(() => { settled = true; });
+
+    await vi.advanceTimersByTimeAsync(19_999);
+    expect(settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(evidencePromise).resolves.toEqual({ settled: true, paneBusy: false });
+    expect(Date.now() - startedAt).toBe(20_000);
+    expect(policy.finalRecheckBudgetMs).toBe(30_000);
+  });
+
+  it('fails an unengaged Claude pane after its bounded final recheck', async () => {
     vi.useFakeTimers();
     const policy = getWorkerStartupEvidencePolicy('claude');
     const startedAt = Date.now();
@@ -3282,12 +3305,12 @@ describe('runtime v2 startup inbox dispatch', () => {
     let settled = false;
     void evidencePromise.finally(() => { settled = true; });
 
-    await vi.advanceTimersByTimeAsync(1_249);
+    await vi.advanceTimersByTimeAsync(31_249);
     expect(settled).toBe(false);
 
     await vi.advanceTimersByTimeAsync(1);
     await expect(evidencePromise).resolves.toEqual({ settled: false, paneBusy: false });
-    expect(Date.now() - startedAt).toBe(1_250);
+    expect(Date.now() - startedAt).toBe(31_250);
   });
 
   it('honors OMC_TEAM_ENGAGED_PANE_RECHECK_MS when bounding the engaged recheck', async () => {
@@ -3317,7 +3340,7 @@ describe('runtime v2 startup inbox dispatch', () => {
       budgetMs => waitForStartupEvidenceBudget(async () => hasEvidence, budgetMs),
       async () => {
         // The pane is not engaged, but the worker publishes status evidence at
-        // the exact moment the probe runs; the terminal read-only check must
+        // the exact moment the probe runs; the final read-only check must
         // observe it instead of discarding a healthy launch.
         hasEvidence = true;
         return 'unavailable';
