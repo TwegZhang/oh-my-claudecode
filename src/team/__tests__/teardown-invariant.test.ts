@@ -4,6 +4,7 @@
 // Uses real git via git-fixture helper.
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -139,6 +140,23 @@ describe('drainAndStop — drain timeout', () => {
 
   afterEach(async () => {
     await fixture.cleanup();
+  });
+
+  it('merges a worker commit made after the last poll before shutdown', async () => {
+    const config = makeConfig(fixture, { pollIntervalMs: 60_000 });
+    const handle = await startMergeOrchestrator(config);
+
+    await handle.registerWorker('worker-1');
+    const workerCommitSha = await fixture.commitFile('worker-1', 'worker-1/final.ts', '// final work\n');
+
+    const result = await handle.drainAndStop();
+
+    expect(result.unmerged).toEqual([]);
+    expect(() => execFileSync(
+      'git',
+      ['merge-base', '--is-ancestor', workerCommitSha, `refs/heads/${fixture.leaderBranch}`],
+      { cwd: fixture.repoRoot, stdio: 'pipe' },
+    )).not.toThrow();
   });
 
   it('audit row has reason drain-timeout when drainTimeoutMs is very short', async () => {
