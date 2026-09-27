@@ -99,6 +99,58 @@ describe('teamCommand role-only shorthand', () => {
     expect(logSpy.mock.calls.flat().join('\n')).not.toContain('Usage: omc team');
   });
 
+  it.each(['list', 'ls', 'resume', 'logs', 'attach'])(
+    'rejects `%s` instead of starting a team',
+    async (subcommand) => {
+      const { teamCommand } = await import('../team.js');
+      process.exitCode = 0;
+
+      await teamCommand([subcommand]);
+
+      expect(runtimeV2Mocks.startTeamV2).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Unsupported team command'));
+      expect(logSpy.mock.calls.flat().join('\n')).toContain('Usage: omc team');
+      expect(process.exitCode).toBe(1);
+    },
+  );
+
+  it('rejects an unknown bare word instead of treating it as a task', async () => {
+    const { teamCommand } = await import('../team.js');
+    process.exitCode = 0;
+
+    await teamCommand(['unknown-word']);
+
+    expect(runtimeV2Mocks.startTeamV2).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Usage: omc team'));
+    expect(logSpy.mock.calls.flat().join('\n')).toContain('Usage: omc team');
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('treats --help anywhere as help instead of task text', async () => {
+    const { teamCommand } = await import('../team.js');
+
+    await teamCommand(['resume', '--help']);
+
+    expect(runtimeV2Mocks.startTeamV2).not.toHaveBeenCalled();
+    expect(logSpy.mock.calls.flat().join('\n')).toContain('Usage: omc team');
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('starts a single-word task when --task makes it explicit', async () => {
+    const { teamCommand } = await import('../team.js');
+
+    await teamCommand(['--task', 'review']);
+
+    expect(runtimeV2Mocks.startTeamV2).toHaveBeenCalledWith(expect.objectContaining({
+      workerCount: 3,
+      tasks: [
+        { subject: 'Worker 1: review', description: 'review', owner: 'worker-1' },
+        { subject: 'Worker 2: review', description: 'review', owner: 'worker-2' },
+        { subject: 'Worker 3: review', description: 'review', owner: 'worker-3' },
+      ],
+    }));
+  });
+
   it('loads per-role prompts for mixed worker specs', async () => {
     const { teamCommand } = await import('../team.js');
 
